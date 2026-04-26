@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Leaflet & Chart.js -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+    <div>
+        <h1 class="display-5 fw-bold gradient-text mb-0">Smart City Dashboard</h1>
+        <p class="text-muted mb-0">Real-time intelligent traffic management and simulation.</p>
+    </div>
+    <div>
+        <button id="simToggleBtn" class="btn btn-outline-light rounded-pill px-4 fw-bold">
+            <i class="fa-solid fa-play me-2"></i> Start Simulation
+        </button>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4 slide-up" style="animation-delay: 0.1s;">
+        <div class="card glass-card text-center p-4 h-100">
+            <div class="card-body d-flex flex-column justify-content-center">
+                <i class="fa-solid fa-car fa-3x glow-cyan mb-3"></i>
+                <h5 class="card-title text-uppercase tracking-wider small fw-bold glow-cyan">Total Records</h5>
+                <h2 id="val-records" class="display-4 fw-bold glow-cyan mt-2">{{ total_records }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 slide-up" style="animation-delay: 0.2s;">
+        <div class="card glass-card text-center p-4 h-100">
+            <div class="card-body d-flex flex-column justify-content-center">
+                <i class="fa-solid fa-triangle-exclamation fa-3x glow-yellow mb-3"></i>
+                <h5 class="card-title text-uppercase tracking-wider small fw-bold glow-yellow">High Traffic Zones</h5>
+                <h2 id="val-zones" class="display-4 fw-bold glow-yellow mt-2">{{ high_traffic_zones }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 slide-up" style="animation-delay: 0.3s;">
+        <div class="card glass-card text-center p-4 h-100">
+            <div class="card-body d-flex flex-column justify-content-center">
+                <i class="fa-solid fa-bell fa-3x glow-pink mb-3"></i>
+                <h5 class="card-title text-uppercase tracking-wider small fw-bold glow-pink">Active Alerts</h5>
+                <h2 id="val-alerts" class="display-4 fw-bold glow-pink mt-2">{{ total_alerts }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-5">
+    <div class="col-lg-8 slide-up" style="animation-delay: 0.4s;">
+        <div class="card glass-card p-3 h-100">
+            <h5 class="fw-bold text-muted small text-uppercase tracking-wider mb-3 ps-2">Traffic Trend (Live)</h5>
+            <div style="height: 300px; position: relative;">
+                <canvas id="lineChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 slide-up" style="animation-delay: 0.5s;">
+        <div class="card glass-card p-3 h-100">
+            <h5 class="fw-bold text-muted small text-uppercase tracking-wider mb-3 ps-2">Congestion Distribution</h5>
+            <div style="height: 300px; position: relative;" class="d-flex justify-content-center align-items-center">
+                <canvas id="doughnutChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 slide-up mb-5" style="animation-delay: 0.6s;">
+    <div class="col-12">
+        <div class="card glass-card p-3">
+            <h5 class="fw-bold text-muted small text-uppercase tracking-wider mb-3 ps-2">Live Signal Map</h5>
+            <div id="map" style="height: 400px; border-radius: 1rem; border: 1px solid rgba(255,255,255,0.1);"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Auto-refresh & Chart Logic -->
+<script>
+    // Theme colors matching CSS
+    const colorCyan = '#00f3ff';
+    const colorYellow = '#ffd700';
+    const colorPink = '#ff007f';
+    const colorGreen = '#00ff66';
+
+    // Chart instances
+    let lineChart, doughnutChart;
+    // Map instances
+    let map;
+    let markers = {};
+
+    function initCharts() {
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.font.family = 'Inter';
+
+        const ctxLine = document.getElementById('lineChart').getContext('2d');
+        lineChart = new Chart(ctxLine, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Vehicle Count',
+                    data: [],
+                    borderColor: colorCyan,
+                    backgroundColor: 'rgba(0, 243, 255, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: colorCyan,
+                    pointRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    x: { grid: { display: false } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        const ctxDoughnut = document.getElementById('doughnutChart').getContext('2d');
+        doughnutChart = new Chart(ctxDoughnut, {
+            type: 'doughnut',
+            data: {
+                labels: ['HIGH', 'MEDIUM', 'LOW'],
+                datasets: [{
+                    data: [0, 0, 0],
+                    backgroundColor: [colorPink, colorYellow, colorGreen],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12 } }
+                }
+            }
+        });
+    }
+
+    function initMap() {
+        // Center on NYC (based on sample data)
+        map = L.map('map').setView([40.75, -73.98], 12);
+        
+        // Dark theme map tiles
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+        }).addTo(map);
+    }
+
+    async function fetchDashboardData() {
+        try {
+            const res = await fetch('/api/dashboard_data');
+            const data = await res.json();
+
+            // Update stats
+            document.getElementById('val-records').innerText = data.stats.total_records;
+            document.getElementById('val-zones').innerText = data.stats.high_traffic_zones;
+            document.getElementById('val-alerts').innerText = data.stats.total_alerts;
+
+            // Update Line Chart
+            lineChart.data.labels = data.chart_labels;
+            lineChart.data.datasets[0].data = data.chart_vehicles;
+            lineChart.update();
+
+            // Update Doughnut Chart
+            doughnutChart.data.datasets[0].data = [
+                data.doughnut_data.HIGH,
+                data.doughnut_data.MEDIUM,
+                data.doughnut_data.LOW
+            ];
+            doughnutChart.update();
+
+            // Update Map Markers
+            data.signals.forEach(sig => {
+                if(!sig.lat || !sig.lng) return;
+                
+                let markerColor = 'gray';
+                if(sig.current_status === 'RED') markerColor = 'red';
+                if(sig.current_status === 'GREEN') markerColor = 'lime';
+
+                const customIcon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<div style="background-color:${markerColor}; width:15px; height:15px; border-radius:50%; box-shadow: 0 0 10px ${markerColor}; border: 2px solid white;"></div>`,
+                    iconSize: [15, 15],
+                    iconAnchor: [7, 7]
+                });
+
+                if(markers[sig.signal_id]) {
+                    markers[sig.signal_id].setLatLng([sig.lat, sig.lng]);
+                    markers[sig.signal_id].setIcon(customIcon);
+                    markers[sig.signal_id].setPopupContent(`<b>${sig.location_name}</b><br>Signal: ${sig.signal_id}<br>Timer: ${sig.timer}s<br>Status: ${sig.current_status}`);
+                } else {
+                    markers[sig.signal_id] = L.marker([sig.lat, sig.lng], {icon: customIcon})
+                        .addTo(map)
+                        .bindPopup(`<b>${sig.location_name}</b><br>Signal: ${sig.signal_id}<br>Timer: ${sig.timer}s<br>Status: ${sig.current_status}`);
+                }
+            });
+
+        } catch (e) {
+            console.error("Failed to fetch dashboard data", e);
+        }
+    }
+
+    async function checkSimulationStatus() {
+        const res = await fetch('/api/simulation/status');
+        const data = await res.json();
+        updateSimBtn(data.active);
+    }
+
+    function updateSimBtn(isActive) {
+        const btn = document.getElementById('simToggleBtn');
+        if(isActive) {
+            btn.innerHTML = '<i class="fa-solid fa-stop me-2"></i> Stop Simulation';
+            btn.className = 'btn btn-outline-danger rounded-pill px-4 fw-bold shadow-lg';
+        } else {
+            btn.innerHTML = '<i class="fa-solid fa-play me-2"></i> Start Simulation';
+            btn.className = 'btn btn-outline-light rounded-pill px-4 fw-bold';
+        }
+    }
+
+    document.getElementById('simToggleBtn').addEventListener('click', async () => {
+        const res = await fetch('/api/simulation/toggle', { method: 'POST' });
+        const data = await res.json();
+        updateSimBtn(data.active);
+    });
+
+    // Initialization
+    document.addEventListener('DOMContentLoaded', () => {
+        initCharts();
+        initMap();
+        fetchDashboardData();
+        checkSimulationStatus();
+        
+        // Auto refresh every 5 seconds
+        setInterval(fetchDashboardData, 5000);
+    });
+</script>
+{% endblock %}

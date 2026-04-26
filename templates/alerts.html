@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="mb-5 text-center text-md-start">
+        <h2 class="fw-bold"><i class="fa-solid fa-bell text-danger me-2 heartbeat"></i> System Alerts</h2>
+        <p class="text-muted">Automated notifications for critical traffic conditions</p>
+    </div>
+
+    <div class="row g-4">
+        {% for a in alerts %}
+        <div class="col-lg-6 slide-up" style="animation-delay: {{ loop.index0 * 0.1 }}s;">
+            <div class="card bg-dark border-0 h-100 alert-card position-relative overflow-hidden">
+                <div class="position-absolute top-0 start-0 w-100 h-100 bg-danger bg-opacity-10 z-0"></div>
+                <div class="card-body position-relative z-1 p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="badge {% if a.severity == 'CRITICAL' %}bg-danger{% else %}bg-warning text-dark{% endif %} rounded-pill px-3 py-2 fw-bold shadow-sm">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i> {{ a.type | replace('_', ' ') }}
+                        </span>
+                        <small class="text-secondary fw-semibold">
+                            <i class="fa-regular fa-clock me-1"></i>
+                            {{ a.timestamp.strftime('%b %d, %H:%M:%S') if a.timestamp else 'N/A' }}
+                        </small>
+                    </div>
+                    
+                    <div class="d-flex align-items-center mb-3 mt-4">
+                        <div class="bg-dark p-3 rounded-circle border border-danger border-opacity-50 me-3 shadow-sm">
+                            <i class="fa-solid fa-traffic-light text-danger fa-lg"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted small text-uppercase tracking-wider mb-0">Affected Signal</p>
+                            <h4 class="card-title text-light fw-bold mb-0">
+                                {{ a.signal_id }}
+                                {% if a.location_name %}
+                                <span class="fs-6 fw-normal text-muted ms-2"><i class="fa-solid fa-location-dot fa-xs me-1"></i>{{ a.location_name }}</span>
+                                {% endif %}
+                            </h4>
+                        </div>
+                    </div>
+                    
+                    <div class="p-3 bg-black bg-opacity-25 rounded-3 border border-secondary border-opacity-25 mt-3">
+                        <p class="card-text text-light mb-0"><i class="fa-solid fa-circle-info text-primary me-2"></i>{{ a.message }}</p>
+                    </div>
+                    {% if a.suggestion %}
+                    <div class="p-3 bg-primary bg-opacity-10 rounded-3 border border-primary border-opacity-25 mt-2">
+                        <p class="card-text text-info mb-0 small fw-bold"><i class="fa-solid fa-route me-2"></i>Suggestion: <span class="fw-normal text-light">{{ a.suggestion }}</span></p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 slide-up">
+            <div class="card glass-card border-0 py-5">
+                <div class="card-body text-center py-5">
+                    <div class="d-inline-block bg-success bg-opacity-10 p-4 rounded-circle mb-4">
+                        <i class="fa-solid fa-shield-check fa-4x text-success"></i>
+                    </div>
+                    <h3 class="fw-bold text-light mb-2">All Clear</h3>
+                    <p class="text-muted fs-5 mb-0">No active alerts. Traffic is flowing smoothly across all monitored zones.</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

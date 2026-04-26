@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <h2 class="fw-bold mb-0"><i class="fa-solid fa-database text-primary me-2"></i> Traffic Records</h2>
+            <p class="text-muted small mt-1 mb-0">Historical log of all monitored signals</p>
+        </div>
+        
+        <form class="d-flex shadow-sm" method="GET" action="/view">
+            <select name="level" class="form-select bg-dark text-light border-secondary custom-select rounded-start-pill border-end-0">
+                <option value="">All Traffic Levels</option>
+                <option value="HIGH" {% if request.args.get('level') == 'HIGH' %}selected{% endif %}>High Congestion</option>
+                <option value="MEDIUM" {% if request.args.get('level') == 'MEDIUM' %}selected{% endif %}>Medium Congestion</option>
+                <option value="LOW" {% if request.args.get('level') == 'LOW' %}selected{% endif %}>Low Congestion</option>
+            </select>
+            <button class="btn btn-primary rounded-end-pill px-4 fw-bold me-3" type="submit">
+                <i class="fa-solid fa-filter"></i> Filter
+            </button>
+            <a href="/export" class="btn btn-outline-success rounded-pill px-4 fw-bold shadow-sm">
+                <i class="fa-solid fa-file-csv me-2"></i> Export Data
+            </a>
+        </form>
+    </div>
+
+    <div class="card glass-card border-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover align-middle custom-table mb-0">
+                <thead>
+                    <tr class="text-uppercase text-muted small tracking-wider">
+                        <th class="ps-4 py-3">Timestamp</th>
+                        <th class="py-3">Location & Signal</th>
+                        <th class="py-3 text-center">Vehicle Count</th>
+                        <th class="py-3 text-center">Avg Speed</th>
+                        <th class="pe-4 py-3 text-end">Congestion Level</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in data %}
+                    <tr class="slide-up" style="animation-delay: {{ loop.index0 * 0.05 }}s;">
+                        <td class="ps-4 text-secondary">{{ d.timestamp.strftime('%b %d, %Y - %H:%M') if d.timestamp else 'N/A' }}</td>
+                        <td class="fw-bold text-light">
+                            {{ d.signal_id }}
+                            {% if d.location_name %}
+                            <div class="text-muted small fw-normal"><i class="fa-solid fa-location-dot me-1"></i>{{ d.location_name }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">{{ d.vehicle_count }} <i class="fa-solid fa-car text-secondary ms-1 fa-xs"></i></td>
+                        <td class="text-center">{{ d.avg_speed }} <span class="text-secondary small">km/h</span></td>
+                        <td class="pe-4 text-end">
+                            {% if d.congestion_level == 'HIGH' %}
+                                <span class="badge bg-danger bg-opacity-20 text-danger border border-danger rounded-pill px-3 py-2 fw-bold">
+                                    <i class="fa-solid fa-circle fa-2xs me-1 heartbeat"></i> HIGH
+                                </span>
+                            {% elif d.congestion_level == 'MEDIUM' %}
+                                <span class="badge bg-warning bg-opacity-20 text-warning border border-warning rounded-pill px-3 py-2 fw-bold">
+                                    <i class="fa-solid fa-circle fa-2xs me-1"></i> MEDIUM
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success bg-opacity-20 text-success border border-success rounded-pill px-3 py-2 fw-bold">
+                                    <i class="fa-solid fa-circle fa-2xs me-1"></i> LOW
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-inbox fa-3x mb-3 opacity-50"></i>
+                            <p class="mb-0">No traffic records found matching your criteria.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
