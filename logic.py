@@ -10,6 +10,96 @@ SIGNAL_LOCATIONS = {
     "SIG-005": {"name": "Times Square", "lat": 40.7588, "lng": -73.9851}
 }
 
+def get_congestion(data):
+    try:
+        flow = data["flowSegmentData"]
+        speed = flow["currentSpeed"]
+        free = flow["freeFlowSpeed"]
+
+        ratio = speed / free
+
+        if ratio > 0.7:
+            return "green"
+        elif ratio > 0.4:
+            return "yellow"
+        else:
+            return "red"
+
+    except Exception as e:
+        print("Error in get_congestion:", e)
+        return "unknown"
+
+def process_real_traffic(location_name, lat, lon, traffic_data):
+    try:
+        flow = traffic_data["flowSegmentData"]
+        speed = flow["currentSpeed"]
+        free = flow["freeFlowSpeed"]
+        ratio = speed / free
+        
+        if ratio > 0.7:
+            color = "green"
+            level = "LOW"
+            vehicle_count = 20
+        elif ratio > 0.4:
+            color = "yellow"
+            level = "MEDIUM"
+            vehicle_count = 60
+        else:
+            color = "red"
+            level = "HIGH"
+            vehicle_count = 120
+
+        timestamp = datetime.now()
+        
+        # Save to DB
+        sig_id = f"RT-{location_name.replace(' ', '').upper()[:8]}"
+        record = {
+            "signal_id": sig_id,
+            "location_name": location_name,
+            "lat": lat,
+            "lng": lon,
+            "vehicle_count": vehicle_count,
+            "avg_speed": speed,
+            "congestion_level": level,
+            "predicted_congestion": level,
+            "timestamp": timestamp
+        }
+        traffic_collection.insert_one(record)
+        
+        # Persist as a signal for map markers
+        status = "GREEN" if level == "LOW" else ("YELLOW" if level == "MEDIUM" else "RED")
+        signals_collection.update_one(
+            {"signal_id": sig_id},
+            {"$set": {
+                "location_name": location_name,
+                "lat": lat,
+                "lng": lon,
+                "current_status": status,
+                "timer": "Live",
+                "is_realtime": True
+            }},
+            upsert=True
+        )
+        
+        # Generate alert if HIGH
+        if level == "HIGH":
+            alert_data = {
+                "type": "REALTIME_HIGH_TRAFFIC",
+                "signal_id": record["signal_id"],
+                "location_name": location_name,
+                "message": f"Real-time high traffic detected at {location_name}. Current speed: {speed}km/h (Free flow: {free}km/h).",
+                "suggestion": "Suggest alternate routes in the area.",
+                "severity": "WARNING",
+                "timestamp": timestamp
+            }
+            alerts_collection.insert_one(alert_data)
+            
+        return color
+        
+    except Exception as e:
+        print("Error processing real traffic:", e)
+        return "unknown"
+
 def analyze_traffic(signal_id, vehicle_count, avg_speed):
     # Determine congestion level
     if vehicle_count > 100 and avg_speed < 20:

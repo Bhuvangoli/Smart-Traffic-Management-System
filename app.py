@@ -1,12 +1,16 @@
 import io
 import csv
+import os
 from flask import Flask, render_template, request, redirect, flash, jsonify, Response
 from logic import analyze_traffic
 from db import traffic_collection, alerts_collection, signals_collection
 from simulator import toggle_simulation, get_simulation_status
+from geocoding import get_coordinates
+from traffic_api import get_traffic
+from logic import get_congestion, process_real_traffic
 
 app = Flask(__name__)
-app.secret_key = "smart_city_secret"
+app.secret_key = os.getenv("SECRET_KEY")
 
 @app.route("/")
 def home():
@@ -25,8 +29,8 @@ def add_data():
     if request.method == "POST":
         try:
             signal_id = request.form.get("signal_id")
-            vehicle_count = int(request.form.get("vehicle_count"))
-            avg_speed = int(request.form.get("avg_speed"))
+            vehicle_count = int(request.form.get("vehicle_count", 0))
+            avg_speed = int(request.form.get("avg_speed", 0))
             
             analyze_traffic(signal_id, vehicle_count, avg_speed)
             flash("Traffic data added successfully!", "success")
@@ -86,6 +90,24 @@ def api_dashboard_data():
         "chart_vehicles": chart_vehicles,
         "doughnut_data": doughnut_data,
         "signals": signals
+    })
+
+@app.route("/get_traffic", methods=["POST"])
+def get_traffic_data():
+    location = request.json.get("location")
+
+    lat, lon = get_coordinates(location)
+
+    if not lat:
+        return jsonify({"error": "Location not found"})
+
+    traffic_data = get_traffic(lat, lon)
+    congestion = process_real_traffic(location, lat, lon, traffic_data)
+
+    return jsonify({
+        "lat": lat,
+        "lon": lon,
+        "congestion": congestion
     })
 
 @app.route("/api/simulation/toggle", methods=["POST"])
