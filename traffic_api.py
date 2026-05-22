@@ -1,6 +1,6 @@
 import requests
-
-API_KEY = "dtXepsDULX915FETPCu9NsA25FCaB34S"
+import os
+API_KEY = os.getenv("TOMTOM_API_KEY")
 
 def get_traffic(lat, lon):
     url = "https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json"
